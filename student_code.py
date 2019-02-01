@@ -128,7 +128,68 @@ class KnowledgeBase(object):
         printv("Retracting {!r}", 0, verbose, [fact_or_rule])
         ####################################################
         # Student code goes here
+        if isinstance(fact_or_rule, Fact) and fact_or_rule in self.facts:
+            real_fact = self._get_fact(fact_or_rule)
+            self.remove_helper(real_fact)
         
+
+    def remove_helper(self, fact_or_rule):
+        #check supported_by first, ask can we remove this?
+        #if it has things in support, check if asserted, set it to false, after the if loop return
+        #check if this a fact and if it's in facts
+        #chekc first if there are things in supports_facts
+            #for each fact in sup_facts, look at fact_rule pairs, if the fact in the supported by is the fact we are removing, remove the supported fact
+            #now if that dependent has empty supported_by and not asserted, call remove
+
+        if len(fact_or_rule.supported_by) != 0:
+            if fact_or_rule.asserted:
+                fact_or_rule.asserted = False
+            return
+        # remove that fact from self.facts
+        if isinstance(fact_or_rule, Fact) and fact_or_rule in self.facts:
+            if len(fact_or_rule.supported_by) != 0:
+                for sup_pairs in fact_or_rule.supported_by:
+                    sup_pairs[0].supports_facts.remove(fact_or_rule)
+                    sup_pairs[1].supports_facts.remove(fact_or_rule)
+            if len(fact_or_rule.supports_facts)!=0:
+                for supported_fact in fact_or_rule.supports_facts:
+                    for pairs in supported_fact.supported_by:
+                        # pairs[0] -> fact
+                        if pairs[0] == fact_or_rule:
+                            supported_fact.supported_by.remove(pairs)
+                    if len(supported_fact.supported_by) == 0 and not supported_fact.asserted:
+                        self.remove_helper(supported_fact)
+            if len(fact_or_rule.supports_rules) != 0:
+                for supported_rule in fact_or_rule.supports_rules:
+                    for pairs in supported_rule.supported_by:
+                        if pairs[0] == fact_or_rule:
+                            supported_rule.supported_by.remove(pairs)
+                    if len(supported_rule.supported_by)==0 and not supported_rule.asserted:
+                        self.remove_helper(supported_rule)
+            self.facts.remove(fact_or_rule)
+        # do the same thing for rules
+        elif isinstance(fact_or_rule, Rule) and fact_or_rule in self.rules:
+            if len(fact_or_rule.supported_by) != 0:
+                for sup_pairs in fact_or_rule.supported_by:
+                    sup_pairs[0].supports_rules.remove(fact_or_rule)
+                    sup_pairs[1].supports_rules.remove(fact_or_rule)
+            if len(fact_or_rule.supports_facts)!=0:
+                for supported_fact in fact_or_rule.supports_facts:
+                    for pairs in supported_fact.supported_by:
+                        if pairs[1] == fact_or_rule:
+                            supported_fact.supported_by.remove(pairs)
+                    if len(supported_fact.supported_by)==0 and not supported_fact.asserted:
+                        self.remove_helper(supported_fact)
+            if len(fact_or_rule.supports_rules)!=0:
+                for supported_rule in fact_or_rule.supports_rules:
+                    for pairs in supported_rule.supported_by:
+                        if pairs[1] == fact_or_rule:
+                            supported_rule.supported_by.remove(pairs)
+                    if len(supported_rule.supported_by)==0 and not supported_rule.asserted:
+                        self.remove_helper(supported_rule)
+            self.rules.remove(fact_or_rule)
+
+
 
 class InferenceEngine(object):
     def fc_infer(self, fact, rule, kb):
@@ -146,3 +207,26 @@ class InferenceEngine(object):
             [fact.statement, rule.lhs, rule.rhs])
         ####################################################
         # Student code goes here
+        # if there is only one thing on lhs, create a new fact from the bindings created from lhs and fact
+
+        if match(fact.statement, rule.lhs[0]):
+            fact_bindings = match(fact.statement, rule.lhs[0])
+            if len(rule.lhs) == 1:
+                f_statement = instantiate(rule.rhs, fact_bindings)
+                new_fact = Fact(f_statement, supported_by=[[fact, rule]])
+                #add the fact to the support list of fact and rule
+                fact.supports_facts.append(new_fact)
+                rule.supports_facts.append(new_fact)
+                #add the new fact to the database
+                kb.kb_add(new_fact)
+        # if there are multiple things on lhs, iterate through the list and create rules out of that
+            else:
+                left_statements = []
+                for left in rule.lhs[1:]:
+                    lhs_statement = instantiate(left, fact_bindings)
+                    left_statements.append(lhs_statement)
+                new_rule = Rule([left_statements, instantiate(rule.rhs, fact_bindings)], supported_by = [[fact, rule]])
+                fact.supports_rules.append(new_rule)
+                rule.supports_rules.append(new_rule)
+                kb.kb_add(new_rule)
+

@@ -41,6 +41,7 @@ class KBTest(unittest.TestCase):
         self.assertEqual(len(answer), 1)
         self.assertEqual(str(answer[0]), "?X : felix")
 
+
     def test4(self):
         # makes sure retract does not retract supported fact
         ask1 = read.parse_input("fact: (grandmotherof ada ?X)")
@@ -107,3 +108,4 @@ def pprint_support(fact_rule, indent):
 
 if __name__ == '__main__':
     unittest.main()
+
